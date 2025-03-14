@@ -7,6 +7,6 @@ how to run
 
 future:
 
-* (x) adding support for more particles
+* (y) adding support for more particles
 * (x) adding multiple gravity sources
 * (x) adding an actual gui
