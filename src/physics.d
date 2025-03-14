@@ -1,6 +1,7 @@
 import std.stdio;
 import std.random;
 import core.thread;
+import std.math; // Needed for sqrt()
 
 // creates vector
 struct Vector2 {
@@ -13,15 +14,20 @@ struct Particle {
     Vector2 position;
     Vector2 velocity;
     float mass;
+    float dragCoefficient; // New: Drag coefficient (e.g., 0.47 for a sphere)
+    float area;            // New: Cross-sectional area (m²)
 }
 
 // global settings
-const int GRID_WIDTH = 40;
-const int GRID_HEIGHT = 47;
+const int GRID_WIDTH = 50;
+const int GRID_HEIGHT = 50;
 // this sets up the size of grid each frame
-const float SCALE = 17.5; // shows grid size (1 '.' = 17.5u)
-const NUM_PARTICLES = 1; // particles in frame (note: add ability for more :3)
+const float SCALE = 2; // shows grid size (1 '.' = 5u)
+const int NUM_PARTICLES = 3; // Updated: Now supports 2 particles
 Particle[NUM_PARTICLES] particles;
+
+// Constants for air resistance
+const float AIR_DENSITY = 1.225; // kg/m³ (at sea level)
 
 // clears screen, read code.
 void clearScreen() {
@@ -34,7 +40,7 @@ void printParticles() {
 
     // Fill grid with empty space
     foreach (ref row; grid) {
-        row[] = '.';
+        row[] = ' ';
     }
 
     // place particles
@@ -45,21 +51,19 @@ void printParticles() {
 
         // ensures particle is within bounds
         if (x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT) {
-            // determine symbol based on velocity
-            char symbol = '*';
-            if (particle.velocity.x > 0) symbol = '*';
-            if (particle.velocity.x < 0) symbol = '*';
-            if (particle.velocity.y > 0) symbol = '*';
-            if (particle.velocity.y < 0) symbol = '*';
-
-            grid[y][x] = symbol;
+            // Updated: Different symbol if two particles overlap
+            if (grid[y][x] == '.') {
+                grid[y][x] = '#'; // First particle
+            } else {
+                grid[y][x] = '#'; // Second particle (to differentiate)
+            }
         }
     }
 
     // clears screen again
     clearScreen();
 
-    //pPrints the grid
+    // Prints the grid
     foreach (row; grid) {
         writeln(row);
     }
@@ -71,15 +75,40 @@ void printParticles() {
 // initializes all particles with velocity and a high starting position.
 void initializeParticles() {
     for (int i = 0; i < NUM_PARTICLES; ++i) {
-        particles[i].position = Vector2(200, 780); // Start higher up
-        particles[i].velocity = Vector2(20, -10);   // Move right (5 m/s) and up (-10 m/s)
-        particles[i].mass = 1;
+        if (i == 0) {
+            particles[i].position = Vector2(10, 60);  // First particle
+            particles[i].velocity = Vector2(20, -10);   // Moving right and up
+        } else {
+            particles[i].position = Vector2(50, 100);  // Second particle
+            particles[i].velocity = Vector2(2, -9);   // Moving left and slightly up
+        }
+        particles[i].mass = 1;          // Same mass for all particles
+        particles[i].dragCoefficient = 1.05; // Drag coefficient for a square
+        particles[i].area = 0.1;        // Approximate cross-sectional area (m²)
     }
 }
 
 // applies earth's gravity force (mass * gravity acceleration g(0) m/s^2) to each particle.
-Vector2 computeForce(ref Particle particle) {
+Vector2 computeGravityForce(ref Particle particle) {
     return Vector2(0, particle.mass * -9.76063); // gravity assuming h=15 from atlantic or smth
+}
+
+// applies wind resistance force based on drag equation
+Vector2 computeDragForce(ref Particle particle) {
+    // Compute velocity magnitude (speed)
+    float speed = sqrt(particle.velocity.x * particle.velocity.x + 
+                       particle.velocity.y * particle.velocity.y);
+
+    if (speed == 0) return Vector2(0, 0); // No drag force if not moving
+
+    // Compute drag magnitude
+    float dragMagnitude = 0.5 * particle.dragCoefficient * AIR_DENSITY * particle.area * speed * speed;
+
+    // Compute drag direction (opposite to velocity)
+    Vector2 dragDirection = Vector2(-particle.velocity.x / speed, -particle.velocity.y / speed);
+
+    // Compute final drag force
+    return Vector2(dragDirection.x * dragMagnitude, dragDirection.y * dragMagnitude);
 }
 
 void runSimulation() {
@@ -100,17 +129,34 @@ void runSimulation() {
 
         for (int i = 0; i < NUM_PARTICLES; ++i) {
             Particle* particle = &particles[i];
-            Vector2 force = computeForce(*particle);
-            Vector2 acceleration = Vector2(force.x / particle.mass, force.y / particle.mass);
+
+            // Compute gravitational force
+            Vector2 gravityForce = computeGravityForce(*particle);
+
+            // Compute air resistance force
+            Vector2 dragForce = computeDragForce(*particle);
+
+            // Compute net force (Gravity + Drag)
+            Vector2 netForce = Vector2(
+                gravityForce.x + dragForce.x,
+                gravityForce.y + dragForce.y
+            );
+
+            // Compute acceleration using Newton's Second Law (F = ma)
+            Vector2 acceleration = Vector2(netForce.x / particle.mass, netForce.y / particle.mass);
+
+            // Update velocity (v = v0 + at)
             particle.velocity.x += acceleration.x * dt;
             particle.velocity.y += acceleration.y * dt;
+
+            // Update position (x = x0 + vt)
             particle.position.x += particle.velocity.x * dt;
             particle.position.y += particle.velocity.y * dt;
 
             // Prevent the particle from falling below the grid
             if (particle.position.y < 0) {
                 particle.position.y = 0;
-                particle.velocity.y = 0; // Stop movement when it hits the ground
+                particle.velocity.y = 0; // Stop downward motion
             }
         }
 
