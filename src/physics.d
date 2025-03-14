@@ -2,32 +2,33 @@ import std.stdio;
 import std.random;
 import core.thread;
 
-// Two-dimensional vector.
+// creates vector
 struct Vector2 {
     float x;
     float y;
 }
 
-// Two-dimensional particle.
+// creates particle
 struct Particle {
     Vector2 position;
     Vector2 velocity;
     float mass;
 }
 
-// Global settings
-const int GRID_WIDTH = 20;
-const int GRID_HEIGHT = 20;
-const float SCALE = 20.0; // Each grid cell represents 20x20 units in real space
-const NUM_PARTICLES = 1;
+// global settings
+const int GRID_WIDTH = 40;
+const int GRID_HEIGHT = 47;
+// this sets up the size of grid each frame
+const float SCALE = 17.5; // shows grid size (1 '.' = 17.5u)
+const NUM_PARTICLES = 1; // particles in frame (note: add ability for more :3)
 Particle[NUM_PARTICLES] particles;
 
-// Clears the terminal screen (works on most Unix-based systems and Windows)
+// clears screen, read code.
 void clearScreen() {
-    writefln("\033[2J\033[H"); // ANSI escape sequence to clear screen
+    writefln("\033[2J\033[H");
 }
 
-// Prints all particles' positions on a scaled grid.
+// prints the particles and screen
 void printParticles() {
     char[GRID_HEIGHT][GRID_WIDTH] grid;
 
@@ -36,21 +37,29 @@ void printParticles() {
         row[] = '.';
     }
 
-    // Place particles
+    // place particles
     foreach (i, particle; particles) {
         int x = cast(int)(particle.position.x / SCALE);
-        int y = GRID_HEIGHT - 1 - cast(int)(particle.position.y / SCALE); // Invert Y for terminal display
+        int y = GRID_HEIGHT - 1 - cast(int)(particle.position.y / SCALE); 
+        // inverts Y for terminal display bc i couldn't think of how to fix it any other way
 
-        // Ensure the particle is within bounds
+        // ensures particle is within bounds
         if (x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT) {
-            grid[y][x] = '*'; // Place the particle
+            // determine symbol based on velocity
+            char symbol = '*';
+            if (particle.velocity.x > 0) symbol = '*';
+            if (particle.velocity.x < 0) symbol = '*';
+            if (particle.velocity.y > 0) symbol = '*';
+            if (particle.velocity.y < 0) symbol = '*';
+
+            grid[y][x] = symbol;
         }
     }
 
-    // Clear the screen
+    // clears screen again
     clearScreen();
 
-    // Print the grid
+    //pPrints the grid
     foreach (row; grid) {
         writeln(row);
     }
@@ -59,18 +68,18 @@ void printParticles() {
     stdout.flush();
 }
 
-// Initializes all particles with zero velocity and a high starting position.
+// initializes all particles with velocity and a high starting position.
 void initializeParticles() {
     for (int i = 0; i < NUM_PARTICLES; ++i) {
-        particles[i].position = Vector2(200, 300); // Start higher up
-        particles[i].velocity = Vector2(0, 0);
+        particles[i].position = Vector2(200, 780); // Start higher up
+        particles[i].velocity = Vector2(20, -10);   // Move right (5 m/s) and up (-10 m/s)
         particles[i].mass = 1;
     }
 }
 
-// Applies Earth's gravity force (mass * gravity acceleration 9.81 m/s^2) to each particle.
+// applies earth's gravity force (mass * gravity acceleration g(0) m/s^2) to each particle.
 Vector2 computeForce(ref Particle particle) {
-    return Vector2(0, particle.mass * -9.81);
+    return Vector2(0, particle.mass * -9.76063); // gravity assuming h=15 from atlantic or smth
 }
 
 void runSimulation() {
