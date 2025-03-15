@@ -1,7 +1,9 @@
+module physics;
 import std.stdio;
 import std.random;
 import core.thread;
-import std.math; // Needed for sqrt()
+import std.math; // needed for squares ig.
+import settings; // import settings
 
 // creates vector
 struct Vector2 {
@@ -14,20 +16,12 @@ struct Particle {
     Vector2 position;
     Vector2 velocity;
     float mass;
-    float dragCoefficient; // New: Drag coefficient (e.g., 0.47 for a sphere)
-    float area;            // New: Cross-sectional area (m²)
+    float dragCoefficient; //note: fix consistency
+    float area;  //cross-sectional area or smth
 }
 
-// global settings
-const int GRID_WIDTH = 50;
-const int GRID_HEIGHT = 50;
-// this sets up the size of grid each frame
-const float SCALE = 2; // shows grid size (1 '.' = 5u)
-const int NUM_PARTICLES = 3; // Updated: Now supports 2 particles
+// declare particles array
 Particle[NUM_PARTICLES] particles;
-
-// Constants for air resistance
-const float AIR_DENSITY = 1.225; // kg/m³ (at sea level)
 
 // clears screen, read code.
 void clearScreen() {
@@ -76,45 +70,45 @@ void printParticles() {
 void initializeParticles() {
     for (int i = 0; i < NUM_PARTICLES; ++i) {
         if (i == 0) {
-            particles[i].position = Vector2(10, 60);  // First particle
-            particles[i].velocity = Vector2(20, -10);   // Moving right and up
+            particles[i].position = Vector2(10, 60);  // first particle position
+            particles[i].velocity = Vector2(20, -10);
         } else {
-            particles[i].position = Vector2(50, 100);  // Second particle
-            particles[i].velocity = Vector2(2, -9);   // Moving left and slightly up
+            particles[i].position = Vector2(50, 100);  // second particle position
+            particles[i].velocity = Vector2(2, -9);
         }
-        particles[i].mass = 1;          // Same mass for all particles
-        particles[i].dragCoefficient = 1.05; // Drag coefficient for a square
-        particles[i].area = 0.1;        // Approximate cross-sectional area (m²)
+        particles[i].mass = 1;          // same mass bc i can't code it any other way
+        particles[i].dragCoefficient = 1.05; // assuming it's a square
+        particles[i].area = 0.1;        // cross-sectional area (idk)
     }
 }
 
 // applies earth's gravity force (mass * gravity acceleration g(0) m/s^2) to each particle.
 Vector2 computeGravityForce(ref Particle particle) {
-    return Vector2(0, particle.mass * -9.76063); // gravity assuming h=15 from atlantic or smth
+    return Vector2(0, particle.mass * GRAVITY); // use gravity from settings.d
 }
 
 // applies wind resistance force based on drag equation
 Vector2 computeDragForce(ref Particle particle) {
-    // Compute velocity magnitude (speed)
+    // compute velocity magnitude (speed)
     float speed = sqrt(particle.velocity.x * particle.velocity.x + 
                        particle.velocity.y * particle.velocity.y);
 
-    if (speed == 0) return Vector2(0, 0); // No drag force if not moving
+    if (speed == 0) return Vector2(0, 0); // mo drag force if not moving
 
-    // Compute drag magnitude
+    // compute drag magnitude
     float dragMagnitude = 0.5 * particle.dragCoefficient * AIR_DENSITY * particle.area * speed * speed;
 
-    // Compute drag direction (opposite to velocity)
+    // compute drag direction (opposite to velocity)
     Vector2 dragDirection = Vector2(-particle.velocity.x / speed, -particle.velocity.y / speed);
 
-    // Compute final drag force
+    // compute final drag force
     return Vector2(dragDirection.x * dragMagnitude, dragDirection.y * dragMagnitude);
 }
 
 void runSimulation() {
-    float totalSimulationTime = 10; // Run for 10 seconds.
-    float currentTime = 0; // Accumulates the time that has passed.
-    float dt = 0.5; // Each step will take 0.5 seconds.
+    float totalSimulationTime = 10; //10 seconds, btw.
+    float currentTime = 0; // time passed
+    float dt = 0.5; // 0,5 -> 1,0 -> 1,5 -> 2,0 etc.
 
     writeln("Initializing particles...");
     initializeParticles();
@@ -124,32 +118,32 @@ void runSimulation() {
         writeln("Time: ", currentTime, " seconds");
         stdout.flush();
 
-        // Sleep to simulate real-time physics
+        // sleep to simulate real-time physics
         Thread.sleep(dur!"usecs"(cast(long)(dt * 1_000_000)));
 
         for (int i = 0; i < NUM_PARTICLES; ++i) {
             Particle* particle = &particles[i];
 
-            // Compute gravitational force
+            // compute gravitational force
             Vector2 gravityForce = computeGravityForce(*particle);
 
-            // Compute air resistance force
+            // compute air resistance force
             Vector2 dragForce = computeDragForce(*particle);
 
-            // Compute net force (Gravity + Drag)
+            // compute net force (Gravity + Drag)
             Vector2 netForce = Vector2(
                 gravityForce.x + dragForce.x,
                 gravityForce.y + dragForce.y
             );
 
-            // Compute acceleration using Newton's Second Law (F = ma)
+            // compute acceleration f=m*a
             Vector2 acceleration = Vector2(netForce.x / particle.mass, netForce.y / particle.mass);
 
-            // Update velocity (v = v0 + at)
+            // update velocity
             particle.velocity.x += acceleration.x * dt;
             particle.velocity.y += acceleration.y * dt;
 
-            // Update position (x = x0 + vt)
+            // upd position
             particle.position.x += particle.velocity.x * dt;
             particle.position.y += particle.velocity.y * dt;
 
@@ -160,12 +154,14 @@ void runSimulation() {
             }
         }
 
-        // Print the updated particle positions visually
+        // prints position
         printParticles();
         currentTime += dt;
     }
 }
 
+
+//running the program, obviously.
 void main() {
     writeln("Program started.");
     stdout.flush();
